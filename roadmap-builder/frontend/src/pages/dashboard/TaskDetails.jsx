@@ -104,7 +104,7 @@ export default function TaskDetails() {
         taskService.clearNotificationsForTask(taskId).catch(() => {});
 
         navigate("/tasks");
-    }
+    }s
 
     async function handleStartTask() {
         await taskService.update(taskId, {
