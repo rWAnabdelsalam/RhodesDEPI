@@ -75,9 +75,11 @@ export default function TaskDetails() {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user.id, taskId]);
+    }, [user?.id, taskId]);
 
     function load() {
+        if (!user?.id || !taskId) return;
+
         taskService.getForUser(user.id).then((tasks) => {
             const found = tasks.find((t) => t._id === taskId);
             setTask(found);
@@ -104,7 +106,7 @@ export default function TaskDetails() {
         taskService.clearNotificationsForTask(taskId).catch(() => {});
 
         navigate("/tasks");
-    }s
+    }
 
     async function handleStartTask() {
         await taskService.update(taskId, {
