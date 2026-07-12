@@ -176,19 +176,6 @@ function getTrackMinutes(weeklyLessons) {
     }, {});
 }
 
-// The board groups tasks into columns by this, instead of the raw
-// `task.status` string. `status` is a separate field that manual "move"
-// buttons and the "Start Task" timer can each update independently, so it's
-// possible for them to drift out of sync (e.g. a task manually moved back to
-// "Not Started" while its timer field is still set). Deriving the column
-// straight from `activeStartedAt`/`completed` means the board can never
-// disagree with what Task Details shows, which reads the same fields.
-function boardStatus(task) {
-    if (task.completed || task.status === "done") return "done";
-    if (task.activeStartedAt) return "in-progress";
-    return "todo";
-}
-
 export default function DailyTasks() {
     const { user } = useAuth();
 
@@ -246,7 +233,8 @@ export default function DailyTasks() {
                 setTasks([...weeklyLessonTasks, ...manualTasks]);
             })
             .catch(() => setError(true));
-    }    async function moveTask(task, status) {
+    }
+    async function moveTask(task, status) {
         const updated = await taskService.update(task._id, {
             status,
             completed: status === "done",
@@ -350,14 +338,9 @@ export default function DailyTasks() {
     const awaitingConfirmation = activeManualTasks.filter((t) => t.awaitingConfirmation);
     const manualTasksForBoard = activeManualTasks.filter((t) => !t.awaitingConfirmation);
 
-    const completedManualTasks = tasks.filter((task) => {
-        return (
-            task.taskType !== "weekly-lesson" &&
-            task.completed &&
-            task.completedAt &&
-            isInCurrentWeek(task.completedAt)
-        );
-    });
+    const completedManualTasks = tasks.filter(
+        (t) => t.taskType !== "weekly-lesson" && t.completed && isInCurrentWeek(t.completedAt || t.updatedAt)
+    );
 
     const combined = [...weeklyLessons, ...manualTasksForBoard];
     const filtered = combined.filter((task) => taskMatchesFilter(task, activeFilter));
