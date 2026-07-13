@@ -81,7 +81,7 @@ export default function DeleteAccountSection() {
             }
 
             clearProjectStorage();
-            window.location.replace("/signup");
+            window.location.replace("/");
         } catch (err) {
             setMessage(err.message);
         } finally {

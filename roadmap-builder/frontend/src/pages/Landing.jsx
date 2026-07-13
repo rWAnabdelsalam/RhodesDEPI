@@ -271,7 +271,7 @@ export default function Landing() {
             </section>
 
             <footer className="landing-footer">
-                <AppLogo size={26} />
+                <AppLogo size={54} />
 
                 <span className="landing-footer-copy">
           © {new Date().getFullYear()} Rhodes. Every goal has a road.

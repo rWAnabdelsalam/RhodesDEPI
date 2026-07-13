@@ -115,7 +115,7 @@ export default function AccountSettings() {
 
   function handleDelete() {
     logout();
-    navigate("/login");
+    navigate("/");
   }
 
   return (
