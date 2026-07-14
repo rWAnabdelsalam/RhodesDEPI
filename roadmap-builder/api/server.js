@@ -40,14 +40,15 @@ app.use("/api/roadmap", roadmapRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/tasks", taskRoutes);
 
+app.use("/api/focus", require("./routes/focus"));
+app.use("/api/achievements", require("./routes/achievements"));
+
 // Fallback error handler so the API never leaks raw stack traces.
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: "Something went wrong on the server." });
 });
 
-app.use("/api/focus", require("./routes/focus"));
-app.use("/api/achievements", require("./routes/achievements"));
 const PORT = process.env.PORT || 5000;
 
 // Only listen on a port when run directly (local dev).
