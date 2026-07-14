@@ -10,160 +10,244 @@ import { useAuth } from "../../services/AuthContext";
 import { roadmapService } from "../../services/roadmapService";
 import { deriveSkills } from "../../data/catalog";
 import { getProfilePicture } from "../../services/profilePicture";
+import { api } from "../../services/api";
 import ChangePasswordSection from "./ChangePasswordSection";
 
 const defaultConnections = [
-  { key: "github", name: "GitHub", icon: faGithub, connected: false, handle: "" },
-  { key: "google", name: "Google", icon: faGoogle, connected: false, handle: "" },
-  { key: "linkedin", name: "LinkedIn", icon: faLinkedin, connected: false, handle: "" },
+    { key: "github", name: "GitHub", icon: faGithub, connected: false, handle: "" },
+    { key: "google", name: "Google", icon: faGoogle, connected: false, handle: "" },
+    { key: "linkedin", name: "LinkedIn", icon: faLinkedin, connected: false, handle: "" },
 ];
 
 export default function ProfileSettings() {
-  const { user } = useAuth();
-  const [form, setForm] = useState(() => JSON.parse(localStorage.getItem("rb_profile") || "null") || {
-    name: user?.name || "",
-    email: user?.email || "",
-    bio: "",
-    occupation: "",
-    careerGoal: "",
-    location: "",
-    gender: "",
-    avatarUrl: "",
-  });
-  const [saved, setSaved] = useState(false);
-  const [roadmaps, setRoadmaps] = useState([]);
-  const [progressSkills, setProgressSkills] = useState([]);
-  const [connections, setConnections] = useState(() => JSON.parse(localStorage.getItem("rb_connections") || "null") || defaultConnections);
+    const { user } = useAuth();
+    const [form, setForm] = useState(() => JSON.parse(localStorage.getItem("rb_profile") || "null") || {
+        name: user?.name || "",
+        email: user?.email || "",
+        bio: "",
+        occupation: "",
+        careerGoal: "",
+        location: "",
+        gender: "",
+        avatarUrl: "",
+    });
+    const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState("");
+    const [roadmaps, setRoadmaps] = useState([]);
+    const [progressSkills, setProgressSkills] = useState([]);
+    const [connections, setConnections] = useState(() => JSON.parse(localStorage.getItem("rb_connections") || "null") || defaultConnections);
+    const [editingKey, setEditingKey] = useState(null);
+    const [editingValue, setEditingValue] = useState("");
 
-  useEffect(() => {
-    roadmapService.getAllForUser(user.id).then((items) => {
-      setRoadmaps(items || []);
-      const active = (items || []).find((r) => r.active) || items?.[0];
-      if (active) setProgressSkills(deriveSkills(active));
-    }).catch(() => {});
-  }, [user.id]);
+    useEffect(() => {
+        roadmapService.getAllForUser(user.id).then((items) => {
+            setRoadmaps(items || []);
+            const active = (items || []).find((r) => r.active) || items?.[0];
+            if (active) setProgressSkills(deriveSkills(active));
+        }).catch(() => {});
+    }, [user.id]);
 
-    function handleSave(event) {
+    // Load the real, saved profile from the backend on mount, so this page
+    // reflects what's actually stored in the database rather than only
+    // whatever was last cached in this browser's localStorage.
+    useEffect(() => {
+        api.get("/users/profile").then(({ user: profile }) => {
+            setForm((prev) => ({ ...prev, ...profile }));
+        }).catch(() => {});
+    }, []);
+
+    async function handleSave(event) {
         event.preventDefault();
 
-        localStorage.setItem("rb_profile", JSON.stringify(form));
+        setSaveError("");
 
-        // Tell the navbar that the profile changed
-        window.dispatchEvent(new Event("profileUpdated"));
+        try {
+            await api.patch("/users/profile", form);
 
-        setSaved(true);
+            // Keep localStorage as a fast local cache so the navbar's
+            // "profileUpdated" listener can update instantly without a refetch.
+            localStorage.setItem("rb_profile", JSON.stringify(form));
 
-        setTimeout(() => {
-            setSaved(false);
-        }, 2000);
+            // Tell the navbar that the profile changed
+            window.dispatchEvent(new Event("profileUpdated"));
+
+            setSaved(true);
+
+            setTimeout(() => {
+                setSaved(false);
+            }, 2000);
+        } catch (error) {
+            console.error("Could not save profile:", error);
+            setSaveError(error.message || "Could not save profile. Please try again.");
+        }
     }
 
+    function saveConnections(next) {
+        setConnections(next);
+        localStorage.setItem("rb_connections", JSON.stringify(next));
+    }
 
+    function startEditingConnection(key) {
+        const current = connections.find((c) => c.key === key);
+        setEditingKey(key);
+        setEditingValue(current.handle || "");
+    }
 
-  function saveConnections(next) {
-    setConnections(next);
-    localStorage.setItem("rb_connections", JSON.stringify(next));
-  }
+    function cancelEditingConnection() {
+        setEditingKey(null);
+        setEditingValue("");
+    }
 
-  function addOrEditConnection(key) {
-    const current = connections.find((c) => c.key === key);
-    const handle = window.prompt(`Enter your ${current.name} handle/email`, current.handle || "");
-    if (!handle) return;
-    saveConnections(connections.map((c) => c.key === key ? { ...c, connected: true, handle } : c));
-  }
+    function confirmEditingConnection(key) {
+        const trimmed = editingValue.trim();
+        if (!trimmed) return;
 
-  const completedRoadmaps = roadmaps.filter((r) => (r.phases || []).length && r.phases.every((p) => p.status === "completed"));
-  const completedLessons = roadmaps.reduce((sum, r) => sum + (r.phases || []).reduce((s, p) => s + (p.lessonProgress || []).filter(Boolean).length, 0), 0);
-  const totalLessons = roadmaps.reduce((sum, r) => sum + (r.phases || []).reduce((s, p) => s + (p.lessonProgress?.length || p.materials?.topics?.length || 0), 0), 0);
-  const progressPercent = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+        saveConnections(connections.map((c) => c.key === key ? { ...c, connected: true, handle: trimmed } : c));
+        setEditingKey(null);
+        setEditingValue("");
+    }
 
-  return (
-    <AppShell>
-      <div className="page-header">
-        <div className="breadcrumb"><span>Profile</span></div>
-        <h1 className="page-title">Learner Profile</h1>
-        <p className="page-sub">Your public learner info, account handles, completed roadmaps, and progress summary.</p>
-      </div>
+    function removeConnection(key) {
+        saveConnections(connections.map((c) => c.key === key ? { ...c, connected: false, handle: "" } : c));
+        if (editingKey === key) cancelEditingConnection();
+    }
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(280px, 0.9fr)", gap: 20, alignItems: "start" }}>
-        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <Card>
-            <div className="material-section-title" style={{ marginBottom: 14 }}>About & Personal Info</div>
-            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <img
-                src={getProfilePicture(form)}
-                alt="Profile"
-                width={56}
-                height={56}
-                style={{ borderRadius: "50%", objectFit: "cover", background: "var(--surface)" }}
-                onError={(e) => { e.target.style.visibility = "hidden"; }}
-              />
+    const completedRoadmaps = roadmaps.filter((r) => (r.phases || []).length && r.phases.every((p) => p.status === "completed"));
+    const completedLessons = roadmaps.reduce((sum, r) => sum + (r.phases || []).reduce((s, p) => s + (p.lessonProgress || []).filter(Boolean).length, 0), 0);
+    const totalLessons = roadmaps.reduce((sum, r) => sum + (r.phases || []).reduce((s, p) => s + (p.lessonProgress?.length || p.materials?.topics?.length || 0), 0), 0);
+    const progressPercent = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
+    return (
+        <AppShell>
+            <div className="page-header">
+                <div className="breadcrumb"><span>Profile</span></div>
+                <h1 className="page-title">Learner Profile</h1>
+                <p className="page-sub">Your public learner info, account handles, completed roadmaps, and progress summary.</p>
             </div>
-            <div className="form-group"><label className="form-label">Full name</label><input className="form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">Email address</label><input className="form-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            <div className="form-group">
-              <label className="form-label">Gender</label>
-              <select className="form-input" value={form.gender || ""} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-                <option value="">Prefer not to say</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-              </select>
-              <p style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Used only to choose a default profile picture if you haven't uploaded one.</p>
-            </div>
-            <div className="form-group"><label className="form-label">Occupation</label><input className="form-input" placeholder="e.g. Student, Product Manager" value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">Career goal</label><input className="form-input" placeholder="e.g. Full-Stack Developer" value={form.careerGoal} onChange={(e) => setForm({ ...form, careerGoal: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">Location</label><input className="form-input" placeholder="Optional" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Bio</label><textarea className="form-input" rows={4} placeholder="A short bio about yourself" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} /></div>
-          </Card>
 
-          <Card>
-            <div className="material-section-title" style={{ marginBottom: 6 }}>Connected Accounts</div>
-            <p style={{ fontSize: 12, color: "var(--text2)", marginBottom: 10 }}>Saved display handles only. No real OAuth connection is made.</p>
-            {connections.map((c) => (
-              <div className="settings-row" key={c.key}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <FontAwesomeIcon icon={c.icon} style={{ fontSize: 18, color: "var(--text2)" }} />
-                  <div><div className="settings-row-label">{c.name}</div><div className="settings-row-sub">{c.connected ? c.handle : "Not added"}</div></div>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(280px, 0.9fr)", gap: 20, alignItems: "start" }}>
+                <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    <Card>
+                        <div className="material-section-title" style={{ marginBottom: 14 }}>About & Personal Info</div>
+                        <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                            <img
+                                src={getProfilePicture(form)}
+                                alt="Profile"
+                                width={56}
+                                height={56}
+                                style={{ borderRadius: "50%", objectFit: "cover", background: "var(--surface)" }}
+                                onError={(e) => { e.target.style.visibility = "hidden"; }}
+                            />
+
+                        </div>
+                        <div className="form-group"><label className="form-label">Full name</label><input className="form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                        <div className="form-group"><label className="form-label">Email address</label><input className="form-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                        <div className="form-group">
+                            <label className="form-label">Gender</label>
+                            <select className="form-input" value={form.gender || ""} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                                <option value="">Prefer not to say</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                            </select>
+                            <p style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Used only to choose a default profile picture if you haven't uploaded one.</p>
+                        </div>
+                        <div className="form-group"><label className="form-label">Occupation</label><input className="form-input" placeholder="e.g. Student, Product Manager" value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} /></div>
+                        <div className="form-group"><label className="form-label">Career goal</label><input className="form-input" placeholder="e.g. Full-Stack Developer" value={form.careerGoal} onChange={(e) => setForm({ ...form, careerGoal: e.target.value })} /></div>
+                        <div className="form-group"><label className="form-label">Location</label><input className="form-input" placeholder="Optional" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
+                        <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Bio</label><textarea className="form-input" rows={4} placeholder="A short bio about yourself" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} /></div>
+                    </Card>
+
+                    <Card>
+                        <div className="material-section-title" style={{ marginBottom: 6 }}>Connected Accounts</div>
+                        <p style={{ fontSize: 12, color: "var(--text2)", marginBottom: 10 }}>Saved display handles only. No real OAuth connection is made.</p>
+                        {connections.map((c) => (
+                            <div className="settings-row" key={c.key} style={{ flexDirection: "column", alignItems: "stretch", gap: editingKey === c.key ? 10 : 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                        <FontAwesomeIcon icon={c.icon} style={{ fontSize: 18, color: "var(--text2)" }} />
+                                        <div><div className="settings-row-label">{c.name}</div><div className="settings-row-sub">{c.connected ? c.handle : "Not added"}</div></div>
+                                    </div>
+
+                                    {editingKey !== c.key && (
+                                        <div style={{ display: "flex", gap: 8 }}>
+                                            <Button variant={c.connected ? "secondary" : "primary"} icon={<FontAwesomeIcon icon={c.connected ? faPenToSquare : faPlus} />} style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => startEditingConnection(c.key)}>
+                                                {c.connected ? "Edit" : "Add"}
+                                            </Button>
+                                            {c.connected && (
+                                                <Button variant="secondary" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => removeConnection(c.key)}>
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {editingKey === c.key && (
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <input
+                                            className="form-input"
+                                            style={{ flex: 1 }}
+                                            autoFocus
+                                            placeholder={`Your ${c.name} handle or email`}
+                                            value={editingValue}
+                                            onChange={(e) => setEditingValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    confirmEditingConnection(c.key);
+                                                }
+                                                if (e.key === "Escape") {
+                                                    cancelEditingConnection();
+                                                }
+                                            }}
+                                        />
+                                        <Button style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => confirmEditingConnection(c.key)}>
+                                            Save
+                                        </Button>
+                                        <Button variant="secondary" style={{ padding: "6px 14px", fontSize: 12 }} onClick={cancelEditingConnection}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </Card>
+
+                    {saveError && (
+                        <p style={{ fontSize: 13, color: "var(--danger, #e5484d)" }}>{saveError}</p>
+                    )}
+
+                    <Button type="submit" icon={<FontAwesomeIcon icon={faFloppyDisk} />} style={{ alignSelf: "flex-start" }}>{saved ? "Saved!" : "Save profile"}</Button>
+                </form>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    <Card>
+                        <div className="material-section-title" style={{ marginBottom: 12 }}><FontAwesomeIcon icon={faChartLine} /> Profile Analytics</div>
+                        <div className="stat-grid" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 14 }}>
+                            <div><div className="stat-label">Roadmaps</div><div className="stat-value">{roadmaps.length}</div></div>
+                            <div><div className="stat-label">Completed</div><div className="stat-value">{completedRoadmaps.length}</div></div>
+                            <div><div className="stat-label">Lessons</div><div className="stat-value">{completedLessons}</div></div>
+                            <div><div className="stat-label">Overall</div><div className="stat-value">{progressPercent}%</div></div>
+                        </div>
+                        <ProgressBar percent={progressPercent} />
+                    </Card>
+
+                    <Card>
+                        <div className="material-section-title" style={{ marginBottom: 14 }}>Skills from Progress</div>
+                        {progressSkills.length === 0 ? <p style={{ fontSize: 13, color: "var(--text2)" }}>Complete lessons to automatically add skills here.</p> : <div>{progressSkills.map((skill) => <span key={skill} className="chip-tag active">{skill}</span>)}</div>}
+                    </Card>
+
+                    <Card>
+                        <div className="material-section-title" style={{ marginBottom: 14 }}><FontAwesomeIcon icon={faRoad} /> Completed Roadmaps</div>
+                        {completedRoadmaps.length === 0 ? <p style={{ fontSize: 13, color: "var(--text2)" }}>No completed roadmaps yet.</p> : completedRoadmaps.map((r) => (
+                            <div className="settings-row" key={r._id}><div><div className="settings-row-label"><FontAwesomeIcon icon={faCircleCheck} /> {r.goal}</div><div className="settings-row-sub">{r.phases?.length || 0} phases completed</div></div></div>
+                        ))}
+                    </Card>
                 </div>
-                <Button variant={c.connected ? "secondary" : "primary"} icon={<FontAwesomeIcon icon={c.connected ? faPenToSquare : faPlus} />} style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => addOrEditConnection(c.key)}>
-                  {c.connected ? "Edit" : "Add"}
-                </Button>
-              </div>
-            ))}
-          </Card>
-
-          <Button type="submit" icon={<FontAwesomeIcon icon={faFloppyDisk} />} style={{ alignSelf: "flex-start" }}>{saved ? "Saved!" : "Save profile"}</Button>
-        </form>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <Card>
-            <div className="material-section-title" style={{ marginBottom: 12 }}><FontAwesomeIcon icon={faChartLine} /> Profile Analytics</div>
-            <div className="stat-grid" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 14 }}>
-              <div><div className="stat-label">Roadmaps</div><div className="stat-value">{roadmaps.length}</div></div>
-              <div><div className="stat-label">Completed</div><div className="stat-value">{completedRoadmaps.length}</div></div>
-              <div><div className="stat-label">Lessons</div><div className="stat-value">{completedLessons}</div></div>
-              <div><div className="stat-label">Overall</div><div className="stat-value">{progressPercent}%</div></div>
             </div>
-            <ProgressBar percent={progressPercent} />
-          </Card>
+            <ChangePasswordSection />
 
-          <Card>
-            <div className="material-section-title" style={{ marginBottom: 14 }}>Skills from Progress</div>
-            {progressSkills.length === 0 ? <p style={{ fontSize: 13, color: "var(--text2)" }}>Complete lessons to automatically add skills here.</p> : <div>{progressSkills.map((skill) => <span key={skill} className="chip-tag active">{skill}</span>)}</div>}
-          </Card>
+        </AppShell>
 
-          <Card>
-            <div className="material-section-title" style={{ marginBottom: 14 }}><FontAwesomeIcon icon={faRoad} /> Completed Roadmaps</div>
-            {completedRoadmaps.length === 0 ? <p style={{ fontSize: 13, color: "var(--text2)" }}>No completed roadmaps yet.</p> : completedRoadmaps.map((r) => (
-              <div className="settings-row" key={r._id}><div><div className="settings-row-label"><FontAwesomeIcon icon={faCircleCheck} /> {r.goal}</div><div className="settings-row-sub">{r.phases?.length || 0} phases completed</div></div></div>
-            ))}
-          </Card>
-        </div>
-      </div>
-        <ChangePasswordSection />
-
-    </AppShell>
-
-  );
+    );
 }

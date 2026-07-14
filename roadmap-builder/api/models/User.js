@@ -54,7 +54,32 @@ const userSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        bio: {
+            type: String,
+            default: "",
+        },
+
+        occupation: {
+            type: String,
+            default: "",
+        },
+
+        careerGoal: {
+            type: String,
+            default: "",
+        },
+
+        location: {
+            type: String,
+            default: "",
+        },
+
+        avatarUrl: {
+            type: String,
+            default: "",
+        },
     },
+
     { timestamps: true }
 );
 

@@ -10,11 +10,14 @@ const authRoutes = require("./routes/auth");
 const roadmapRoutes = require("./routes/roadmap");
 const aiRoutes = require("./routes/ai");
 const taskRoutes = require("./routes/tasks");
+const userRoutes = require("./routes/users");
+
 
 const app = express();
 
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*" }));
 app.use(express.json());
+app.use("/api/users", userRoutes);
 
 // Health check works even without a database configured yet -
 // useful for confirming the server itself is running.

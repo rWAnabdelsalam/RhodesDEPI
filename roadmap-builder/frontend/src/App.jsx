@@ -35,6 +35,7 @@ import Achievements from "./pages/dashboard/Achievements";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import AccountSettings from "./pages/dashboard/AccountSettings";
 import NotificationsHistory from "./pages/dashboard/NotificationsHistory";
+import { FocusTimerProvider } from "./pages/dashboard/FocusTimerContext";
 
 // Landing Page
 import Landing from "./pages/Landing";
@@ -43,7 +44,7 @@ export default function App() {
     const location = useLocation();
 
     return (
-        <>
+        <FocusTimerProvider>
             <CursorGradient />
 
             <div key={location.pathname} className="fade-in-route">
@@ -57,10 +58,7 @@ export default function App() {
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/verify-email" element={<VerifyEmail />} />
-                    <Route
-                        path="/verification-success"
-                        element={<VerificationSuccess />}
-                    />
+                    <Route path="/verification-success" element={<VerificationSuccess />} />
 
                     {/* Onboarding */}
                     <Route
@@ -236,10 +234,7 @@ export default function App() {
                         }
                     />
 
-                    <Route
-                        path="/settings/appearance"
-                        element={<Navigate to="/settings/account" replace />}
-                    />
+                    <Route path="/settings/appearance" element={<Navigate to="/settings/account" replace />} />
 
                     <Route
                         path="/notifications"
@@ -250,10 +245,9 @@ export default function App() {
                         }
                     />
 
-                    {/* Catch-all */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </div>
-        </>
+        </FocusTimerProvider>
     );
 }
