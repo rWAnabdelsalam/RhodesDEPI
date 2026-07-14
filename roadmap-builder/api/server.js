@@ -31,7 +31,7 @@ app.use(async (req, res, next) => {
     res.status(500).json({ error: "Database connection failed. Check your MONGODB_URI." });
   }
 });
-
+console.log("auth routes loaded");
 app.use("/api/auth", authRoutes);
 app.use("/api/roadmap", roadmapRoutes);
 app.use("/api/ai", aiRoutes);
