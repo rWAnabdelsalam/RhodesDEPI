@@ -1,17 +1,14 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 
-// Your api health endpoint structure
-app.get('/api/health', (req, res) => {
-    res.json({ status: "ok", timestamp: new Date() });
-});
+app.use(cors({
+    origin: [
+        'http://localhost:5173', // For local development
+        'https://vercel.app' // Your actual live Vercel production domain
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
 
-// ... your authentication routers / verify-email endpoints go here ...
-
-// Only listen when running locally, skip it on Vercel
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(5000, () => console.log('Running locally on port 5000'));
-}
-
-// CRUCIAL FOR VERCEL TO ROUTE TRAFFIC TO EXPRESS
-module.exports = app;
+// Ensure your routes are defined AFTER cors middleware
