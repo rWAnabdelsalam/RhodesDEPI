@@ -3,7 +3,7 @@ import AppShell from "../../components/layout/AppShell";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { focusService } from "../../services/focusService";
-import "./FocusMode.css";
+import "./focusmode.css";
 
 const DEFAULT_SESSION_SECONDS = 25 * 60;
 
