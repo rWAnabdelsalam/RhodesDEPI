@@ -4,20 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRoad, faEnvelopeOpenText } from "@fortawesome/free-solid-svg-icons";
 import Button from "../../components/ui/Button";
 import { useAuth } from "../../services/AuthContext";
-
-function getToken() {
-    return localStorage.getItem("rb_token") || localStorage.getItem("token");
-}
-
-async function readResponse(response) {
-    const text = await response.text();
-
-    if (!text) {
-        return {};
-    }
-
-    return JSON.parse(text);
-}
+import { api } from "../../services/api";
 
 export default function VerifyEmail() {
     const { user } = useAuth();
@@ -38,18 +25,7 @@ export default function VerifyEmail() {
         setMessage("");
 
         try {
-            const response = await fetch("/api/auth/resend-verification", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${getToken()}`,
-                },
-            });
-
-            const data = await readResponse(response);
-
-            if (!response.ok) {
-                throw new Error(data.error || "Could not create verification code.");
-            }
+            const data = await api.post("/auth/resend-verification");
 
             if (data.alreadyVerified) {
                 navigate("/verification-success");
@@ -70,20 +46,7 @@ export default function VerifyEmail() {
         setLoading(true);
 
         try {
-            const response = await fetch("/api/auth/verify-email", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify({ code }),
-            });
-
-            const data = await readResponse(response);
-
-            if (!response.ok) {
-                throw new Error(data.error || "Could not verify email.");
-            }
+            await api.post("/auth/verify-email", { code });
 
             const savedUser = localStorage.getItem("rb_user") || localStorage.getItem("user");
 

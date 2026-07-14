@@ -5,7 +5,7 @@ const app = express();
 app.use(cors({
     origin: [
         'http://localhost:5173', // For local development
-        'https://vercel.app' // Your actual live Vercel production domain
+        'https://rhodes-roadmap-builder.vercel.app/' // Your actual live Vercel production domain
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
