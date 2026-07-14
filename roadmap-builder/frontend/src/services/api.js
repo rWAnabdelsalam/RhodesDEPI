@@ -2,16 +2,17 @@
 // to the Express backend in development, and which Vercel routes to
 // the serverless function in production.
 async function request(path, options = {}) {
-  const token = localStorage.getItem("rb_token");
+    const token = localStorage.getItem("rb_token");
+    const baseUrl = import.meta.env.VITE_API_URL || "";
 
-  const res = await fetch(`/api${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+    const res = await fetch(`${baseUrl}/api${path}`, {
+        ...options,
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(options.headers || {}),
+        },
+    });
 
   let data;
   try {
