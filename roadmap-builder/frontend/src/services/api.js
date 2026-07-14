@@ -14,19 +14,33 @@ async function request(path, options = {}) {
         },
     });
 
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
+    // 1. Check if the response failed *before* parsing JSON
+    if (!res.ok) {
+        let errorMessage = `Server error: ${res.status} ${res.statusText}`;
 
-  if (!res.ok) {
-    throw new Error(data?.error || "Something went wrong. Please try again.");
-  }
+        try {
+            // Try to see if the server sent a helpful JSON error body
+            const errorData = await res.json();
+            if (errorData?.error) errorMessage = errorData.error;
+        } catch {
+            // It wasn't JSON (e.g. it was the HTML "The page c..." error)
+            // Optional: read it as text if you want to inspect it
+            const textError = await res.text().catch(() => "");
+            if (textError) console.error("Raw server error page:", textError);
+        }
 
-  return data;
+        throw new Error(errorMessage);
+    }
+
+    // 2. If response is OK, safely parse the JSON
+    try {
+        return await res.json();
+    } catch (err) {
+        // Handles cases where a 200 OK returns an empty body or bad JSON
+        throw new Error("Received invalid JSON data from the server.");
+    }
 }
+
 
 export const api = {
   get: (path, opts) => request(path, opts),
