@@ -10589,3 +10589,5 @@
 /roadmap-builder/api/node_modules/ws/README.md
 /roadmap-builder/api/node_modules/ws/wrapper.mjs
 /roadmap-builder/api/node_modules/.package-lock.json
+.vercel
+.env*

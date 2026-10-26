@@ -15,7 +15,11 @@ const userRoutes = require("./routes/users");
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*" }));
+// CLIENT_ORIGIN is a comma-separated list of allowed origins (or unset for "*").
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ? process.env.CLIENT_ORIGIN.split(",").map((o) => o.trim().replace(/\/$/, ""))
+  : "*";
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use("/api/users", userRoutes);
 
